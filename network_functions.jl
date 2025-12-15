@@ -316,29 +316,29 @@ function assign_PV_setpoints!(math::Dict, PV_load::Vector{Any}, setpoints_list::
     VoltVAr_count = 0
     nr_PVs = 1
     i = 1
-    for (_, load) in math["load"] #TODO add VoltVAr + add starting values for pd and qd
+    for (_, load) in math["load"] #TODO add VoltVAr
         PV_setpoint = setpoints_intermediate_list[i]
         if PV_setpoint == "PF_fixed" && load["index"] > 55 && ((PF_fixed_count - 4 <  VoltWatt_count) || PF_fixed_count < 5) #TODO add VoltVAr_count
             PF_fixed_count += 1
             load["PV_setpoint"] = "PF_fixed"
             push!(PV_setpoints, (load["index"], "PF_fixed"))
-            load["pd_start"] = load["pd"][1]
-            load["qd_start"] = load["qd"][1]     
+            load["pd_start"] = solar_profile[1, "P_solar"*load["parquet_id"]]
+            load["qd_start"] = solar_profile[1, "P_solar"*load["parquet_id"]]*tan(acos(0.98))     
             nr_PVs += 1
         elseif PV_setpoint == "VoltWatt" && load["index"] > 55 && ((VoltWatt_count - 4 <  PF_fixed_count) || VoltWatt_count < 5) #TODO add VoltVAr_count
             VoltWatt_count += 1
             load["PV_setpoint"] = "VoltWatt"
             push!(PV_setpoints, (load["index"], "VoltWatt"))
-            load["pd_start"] = load["pd"][1]
-            load["qd_start"] = load["qd"][1]
+            load["pd_start"] = solar_profile[1, "P_solar"*load["parquet_id"]]
+            load["qd_start"] = 0
             nr_PVs += 1
         elseif PV_setpoint == "VoltVAr" && load["index"] > 55 && ((VoltVAr_count - 4 <  PF_fixed_count && VoltVAr_count - 4 <  VoltWatt_count) || VoltVAr_count < 5)
             p_id = load["parquet_id"]
             VoltVAr_count += 1
             load["PV_setpoint"] = "VoltVAr"
             push!(PV_setpoints, (load["index"], "VoltVAr"))
-            load["pd_start"] = load["pd"][1]
-            load["qd_start"] = load["qd"][1]
+            load["pd_start"] = solar_profile[1, "P_solar"*p_id]
+            load["qd_start"] = 0
             load["VV_breakpoints"] = [i[1] for i in voltvar_curve]
             load["VV_Q_values"] = [i[2] for i in voltvar_curve]
             load["S_rating"] = S_inverters[parse(Int, p_id)]

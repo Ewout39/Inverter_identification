@@ -38,7 +38,6 @@ Result_dict = initialize_empty_dict!()
 #Power flow analysis
 function optimal_power_flow_analysis!(math, load_profiles, solar_profile, S_rated, PF, varP_curve, repitition, Nr_pv_buildings)
     _PMD.add_start_vrvi!(math)
-    #TODO add initial values for reactive power loads at the first timestep
     for timestep in 1:100 #TODO change back to 35136
         insert_load_profiles!(math, load_profiles, timestep, solar_profile, PF, S_rated, varP_curve)
         res = _PMD.solve_mc_opf(math, _PMD.IVRENPowerModel, optimizer_with_attributes(Ipopt.Optimizer, "max_iter" => 2000, "print_level" => 0))
