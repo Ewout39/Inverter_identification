@@ -1,0 +1,60 @@
+! adjusted means 1) in km instead of kft, 2) starting from geometry and Rac, recalculated with forward Carson (differences w.r.t. original data are minimal), 3) C's are set to zero
+! reordered means:
+! for 4-wire oh line, the first conductor is the leftmost, and then x progressively increases
+! for 4-wire cables, the top-left is phase A,  top-right phase B, bottom-left C, bottom-right N
+! only the X matrices change w.r.t. to the other case
+
+New Linecode.uglv_240al_xlpe/nyl/pvc_ug_4w_bundled nphases=4  Units=km
+~ Rmatrix=[0.211348  |0.049348 0.211348  |0.049348 0.049348 0.211348  |0.049348 0.049348 0.049348  0.211348  ]
+~ Xmatrix=[0.739887785801019 | 0.6569999117147063 0.739887785801019 | 0.6569999117147063 0.6352239998902349 0.739887785801019 | 0.6352239998902349 0.6569999117147063 0.6569999117147063 0.739887785801019]
+~ Cmatrix=[0. |0. 0. |0. 0. 0. |0. 0. 0. 0.]  
+
+New Linecode.uglv_185al_xlpe/nyl/pvc_ug_4w_bundled nphases=4  Units=km
+~ Rmatrix=[0.260348  |0.049348 0.260348  |0.049348  0.049348  0.260348  |0.049348  0.049348  0.049348  0.260348  ]
+~ Xmatrix=[0.7463562126050884 | 0.6623818146084621 0.7463562126050884 | 0.6623818146084623 0.640605902783991 0.7463562126050884 | 0.640605902783991 0.6623818146084623 0.6623818146084621 0.7463562126050884]
+~ Cmatrix=[0. |0. 0. |0. 0. 0. |0. 0. 0. 0.] 
+
+New Linecode.uglv_185al_xlpe/nyl/pvc_ug_2w_bundled nphases=2  Units=km
+~ Rmatrix=[0.260348  |0.049348  0.260348  ]
+~ Xmatrix=[0.7463562126050884 | 0.6623818146084621 0.7463562126050884 ]
+~ Cmatrix=[0.  |0.  0. ] 
+
+New Linecode.ugsc_16al_xlpe/pvc_ug_2w_bundled nphases=2  Units=km
+~ Rmatrix=[2.489348  |0.049348  2.489348  ]
+~ Xmatrix=[0.8243173274057423 |0.7255607644679731 0.8243173274057423  ]
+~ Cmatrix=[0. |0. 0.] 
+
+New Linecode.uglv_120cu_xlpe/nyl/pvc_ug_4w_bundled nphases=4  Units=km
+~ Rmatrix=[0.246348  |0.049348  0.246348  |0.049348  0.049348  0.246348  |0.049348  0.049348  0.049348  0.246348  ]
+~ Xmatrix=[0.7598115590125911 | 0.6741446902209445 0.7598115590125911 | 0.6741446902209446 0.6523687783964733 0.7598115590125911 | 0.6523687783964733 0.6741446902209446 0.6741446902209445 0.7598115590125911 ]
+~ Cmatrix=[0. |0. 0. |0. 0. 0. |0. 0. 0. 0.] 
+
+New Linecode.ugsc_16cu_xlpe/nyl/pvc_ug_2w_bundled nphases=2  Units=km
+~ Rmatrix=[1.519348  |0.049348  1.519348  ]
+~ Xmatrix=[0.8243173274057423 | 0.715279600512915 0.8243173274057423  ]
+~ Cmatrix=[0. |0. 0.] 
+
+New Linecode.ugsc_25cu_xlpe/nyl/pvc_ug_2w_bundled nphases=2  Units=km
+~ Rmatrix=[0.976348  |0.049348  0.976348  ]
+~ Xmatrix=[0.8102967717895678 | 0.7064465553914843 0.8102967717895678 ]
+~ Cmatrix=[0. |0. 0.] 
+
+New Linecode.abc2x16_lv_oh_2w_bundled nphases=2  Units=km
+~ Rmatrix=[2.421348  |0.049348  2.421348  ]
+~ Xmatrix=[0.82302177635222 |0.737016392524451 0.82302177635222  ]
+~ Cmatrix=[0. |0. 0.] 
+
+New Linecode.tw2x16_lv_oh_2w_bundled nphases=2  Units=km
+~ Rmatrix=[2.421348  |0.049348  2.421348  ]
+~ Xmatrix=[0.8296417882720325 |0.7412616566790088 0.8296417882720325  ]
+~ Cmatrix=[0. |0. 0.]
+
+New Linecode.pluto nphases=4 DefaultBaseFreq=50 Units=km
+~ Rmatrix=[0.217348  |0.049348  0.217348  |0.049348  0.049348  0.217348  |0.049348  0.049348  0.049348  0.217348  ]
+~ Xmatrix=[0.7385365079145755 |  0.4566556516060779 0.7385365079145755 | 0.40205226560189045 0.43620871134196937 0.7385365079145755 | 0.380048346555749 0.40205226560189045 0.4566556516060779 0.7385365079145755 ]
+~ Cmatrix=[0. |0. 0. |0. 0. 0. |0. 0. 0. 0.]
+
+New Linecode.hydrogen nphases=4  Units=km
+~ Rmatrix=[0.217348  |0.049348  0.217348  |0.049348  0.049348  0.217348  |0.049348  0.049348  0.049348  0.217348  ]
+~ Xmatrix=[0.7593444044442633 | 0.4566556516060779 0.7593444044442633 | 0.40205226560189045 0.43620871134196937 0.7593444044442633 | 0.380048346555749 0.40205226560189045 0.4566556516060779 0.7593444044442633 ]
+~ Cmatrix=[0. |0. 0. |0. 0. 0. |0. 0. 0. 0.]
