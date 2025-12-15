@@ -3,7 +3,7 @@ function network_transformation!()
     rm_transformer!(eng)
     reduce_enwl_lines_eng!(eng)
     eng["settings"]["sbase_default"] = 10000
-    math = _PMD.transform_data_model(eng, kron_reduce=false, phase_project=false)
+    math = _PMD.transform_data_model(eng, kron_reduce=false, phase_project=false) #This is where the issue lies
     clean_4w_data!(math, eng=eng, merge_buses_diff_linecodes = false)
     add_linecode_math!(math, eng)
     return eng, math
@@ -302,7 +302,7 @@ function assignment_of_PV!(math::Dict, load_profiles::_DF.DataFrame, repitition:
             break
         end
     end
-    #assign_load_to_parquet_id!(math, load_profiles, repitition)
+    assign_load_to_parquet_id!(math, load_profiles, repitition)
     PV_setpoints = assign_PV_setpoints!(math, PV_load, setpoints_list, repitition, voltvar_curve, S_inverters)
     return PV_load, PV_setpoints
 end
