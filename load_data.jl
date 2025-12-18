@@ -35,7 +35,7 @@ function extract_solar_irradiance_Slovak!()
     solar_irradiance_1h = _DF.DataFrame("Irradiance_kW_m2" => [0.0 for _ in 1:8784])
     solar_irradiance = _DF.DataFrame("Irradiance_kW_m2" => [0.0 for _ in 1:35136])
     #filepath = "C:\\Users\\ewout\\OneDrive - KU Leuven\\PHD\\Julia\\Inverter_setpoint\\Irradiance_profile.csv"
-    filepath = "C:\\Users\\u0181580\\OneDrive - KU Leuven\\PHD\\Julia\\Inverter_setpoint\\Irradiance_profile.csv"
+    filepath = "Irradiance_profile.csv"
     data = CSV.read(filepath, _DF.DataFrame)
     for j in 1:(8792-8)
         solar_irradiance_1h[j, "Irradiance_kW_m2"] = parse(Float64, data[j+8, :Column10])
