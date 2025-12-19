@@ -323,7 +323,7 @@ function assign_PV_setpoints!(math::Dict, PV_load::Vector{Any}, setpoints_list::
             load["PV_setpoint"] = "PF_fixed"
             push!(PV_setpoints, (load["index"], "PF_fixed"))
             load["pd_start"] = [solar_profile[1, "Psolar_"*load["parquet_id"]]]
-            load["qd_start"] = [solar_profile[1, "Psolar_"*load["parquet_id"]]*tan(acos(0.98))]     
+            load["qd_start"] = [solar_profile[1, "Psolar_"*load["parquet_id"]]*tan(acos(0.98))]
             nr_PVs += 1
         elseif PV_setpoint == "VoltWatt" && load["index"] > 55 && ((VoltWatt_count - 4 <  PF_fixed_count && VoltWatt_count - 4 < VoltVAr_count) || VoltWatt_count < 5)
             VoltWatt_count += 1
@@ -393,11 +393,15 @@ function insert_load_profiles!(data::Dict, df::_DF.DataFrame, timestep::Int, sol
                 Q_solar = P_solar * tan(acos(PF))
                 load["pd"][1] = -P_solar/power_unit
                 load["qd"][1] = Q_solar/power_unit
+                load["P_pv"] = P_solar
+                load["Q_pv"] = Q_solar
             elseif load["PV_setpoint"] == "VoltWatt"
                 if P_solar/S_rated <= varP_curve[2][1]
                     Q_solar = 0.0
                     load["pd"][1] = -P_solar/power_unit
                     load["qd"][1] = Q_solar/power_unit
+                    load["P_pv"] = P_solar
+                    load["Q_pv"] = Q_solar
                 elseif P_solar/S_rated >= varP_curve[2][1] && P_solar/S_rated <= varP_curve[3][1]
                     Q_solar = S_rated * (varP_curve[2][2] + (varP_curve[3][2] - varP_curve[2][2])/(varP_curve[3][1]-varP_curve[2][1]) * (P_solar/S_rated - varP_curve[2][1]))
                     load["pd"][1] = -P_solar/power_unit
@@ -412,6 +416,8 @@ function insert_load_profiles!(data::Dict, df::_DF.DataFrame, timestep::Int, sol
         else
             load["pd"][1] = df[timestep, "PLoad_"*p_id]/power_unit
             load["qd"][1] = df[timestep, "QLoad_"*p_id]/power_unit
+            load["P_demand"] = df[timestep, "PLoad_"*p_id]
+            load["Q_demand"] = df[timestep, "QLoad_"*p_id]
         end
     end
 end

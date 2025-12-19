@@ -18,7 +18,7 @@ function extract_loading_Slovak!()
             filepath = "C:\\Users\\u0181580\\OneDrive - KU Leuven\\2e_master\\thesis\\datasets\\1000_houses_dataset\\Code_data\\powerdf_clean_train\\$(k-581).csv"
             data = CSV.read(filepath, _DF.DataFrame, delim=',')
         end
-        if data[1, :PV] == 0 && sum(data[!, :P]) <= 25000
+        if data[1, :PV] == 0 && sum(data[!, :P]) <= 28000 && sum(data[!, :P]) >= 3500
             loaded_data[i] = data
             for j in 6:35141
                 load_data[j-5, "PLoad_$(i)"] = loaded_data[i][j, :P]
@@ -54,7 +54,7 @@ function extract_solar_irradiance_Slovak!()
     return solar_irradiance[!, "Irradiance_kW_m2"]
 end
 
-function create_solar_profiles!(solar_irradiance, PR, eff_panel, panel_area, load_profiles, nr_solar_hr_year)
+function create_solar_profiles!(solar_irradiance, eff_system, load_profiles, panel_peak_power, panel_size)
     Nr_panels = []
     S_inverter = []
     column_names = ["Psolar_$(i)" for i in 1:330]
@@ -62,14 +62,14 @@ function create_solar_profiles!(solar_irradiance, PR, eff_panel, panel_area, loa
     for i in 1:330
         load_profile = load_profiles[!, "PLoad_$(i)"]
         yearly_consumption = sum(load_profile)*0.25 #kWh
-        nr_panels = floor(yearly_consumption / (maximum(solar_irradiance)*PR*eff_panel*panel_area*nr_solar_hr_year))
+        daily_consumption = yearly_consumption/365 #kWh/day
+        peak_sun_hours = sum(solar_irradiance)*0.25/365 #h/day
+        system_size = daily_consumption / (peak_sun_hours)*1.25 #kW
+        nr_panels = ceil(system_size / panel_peak_power) #number of panels needed
         for j in 1:35136
-            solar_profile[j, "Psolar_$(i)"] = nr_panels * solar_irradiance[j] * PR * eff_panel * panel_area #Irradiance in KW per m2
+                solar_profile[j, "Psolar_$(i)"] = nr_panels * panel_size * solar_irradiance[j] * eff_system #Irradiance in KW per m2
         end
-        Installed_capacity = nr_panels*maximum(solar_profile[!, "Psolar_$(i)"])
-        S_inv = 0.75 * Installed_capacity #kW
-        #average_production = solar_irradiance * PR * eff_panel * panel_area * nr_panels #kW
-        #println(i," P_year " , yearly_consumption, " Nr ", nr_panels, " P ", average_production)
+        S_inv = 0.85 * nr_panels * panel_peak_power #kW
         push!(Nr_panels, nr_panels)
         push!(S_inverter, S_inv)
     end
