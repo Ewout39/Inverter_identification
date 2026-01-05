@@ -18,17 +18,23 @@ function extract_loading_Slovak!()
             filepath = "C:\\Users\\u0181580\\OneDrive - KU Leuven\\2e_master\\thesis\\datasets\\1000_houses_dataset\\Code_data\\powerdf_clean_train\\$(k-581).csv"
             data = CSV.read(filepath, _DF.DataFrame, delim=',')
         end
-        if data[1, :PV] == 0 && sum(data[!, :P]) <= 28000 && sum(data[!, :P]) >= 3500
+        if data[1, :PV] == 0 && sum(data[!, :P])*0.25 >= 2000
             loaded_data[i] = data
+            if sum(data[!, :P])*0.25 >= 7500
+                random_adjustment = rand(-500:500)
+                scale_factor= (7500 + random_adjustment) / sum(data[!, :P])
+            else
+                scale_factor= 1.0
+            end
             for j in 6:35141
-                load_data[j-5, "PLoad_$(i)"] = loaded_data[i][j, :P]
-                load_data[j-5, "QLoad_$(i)"] = loaded_data[i][j, :Q]
+                load_data[j-5, "PLoad_$(i)"] = loaded_data[i][j, :P].*scale_factor
+                load_data[j-5, "QLoad_$(i)"] = loaded_data[i][j, :Q].*scale_factor
             end
             i += 1
         end
         k += 1
     end
-    return load_data
+    return load_data #kW and kVAr
 end
 
 function extract_solar_irradiance_Slovak!()
@@ -81,17 +87,17 @@ function initialize_empty_dict!()
     return Result_dict
 end
 
-function add_to_dict!(Result_dict, res, repitition, math)
+function add_to_dict!(Result_dict, res, repitition, math, PV_load)
     a_key = "Repitition_$(repitition)"
     alpha_dict = get!(Result_dict, a_key, Dict("Busses"=>Dict(), "Branches"=>Dict(), "Loads"=>Dict(), "Gen"=>Dict()))
     for (key, values) in res["solution"]["bus"]
         bus_key = string(key)
         bus_dict = get!(alpha_dict["Busses"], bus_key) do
             Dict(
-                "V1" => Float64[sqrt(values["vr"][1]^2 + values["vi"][1]^2)],
-                "V2" => Float64[sqrt(values["vr"][2]^2 + values["vi"][2]^2)],
-                "V3" => Float64[sqrt(values["vr"][3]^2 + values["vi"][3]^2)],
-                "V4" => Float64[sqrt(values["vr"][4]^2 + values["vi"][4]^2)],
+                "V1" => Float64[],
+                "V2" => Float64[],
+                "V3" => Float64[],
+                "V4" => Float64[],
             )
         end
         push!(bus_dict["V1"], sqrt(values["vr"][1]^2 + values["vi"][1]^2))
@@ -102,35 +108,100 @@ function add_to_dict!(Result_dict, res, repitition, math)
     for (key, values) in res["solution"]["branch"]
         branch_key = string(key)
         branch_dict = get!(alpha_dict["Branches"], branch_key) do
-            Dict("line_loading_P1" => Float64[values["line_loading"][1]],
-                 "line_loading_P2" => Float64[values["line_loading"][2]],
-                 "line_loading_P3" => Float64[values["line_loading"][3]])
+            Dict("line_loading_P1" => Float64[],
+                 "line_loading_P2" => Float64[],
+                 "line_loading_P3" => Float64[])
         end
         push!(branch_dict["line_loading_P1"], values["line_loading"][1])
         push!(branch_dict["line_loading_P2"], values["line_loading"][2])
         push!(branch_dict["line_loading_P3"], values["line_loading"][3])
     end
     for (key, values) in math["load"]
-        load_key = string(key)
-        load_dict = get!(alpha_dict["Loads"], load_key) do
-            Dict(
-                "P$(values["connections"][1])" => Float64[values["pd"][1]],
-                "Q$(values["connections"][1])" => Float64[values["qd"][1]]
-            )
+        load_index = values["index"]
+        if load_index <= 55
+            load_key = string(key)
+            load_dict = get!(alpha_dict["Loads"], load_key) do
+                Dict(
+                    "P$(values["connections"][1])" => Float64[],
+                    "Q$(values["connections"][1])" => Float64[],
+                    "P_pv$(values["connections"][1])" => Float64[],
+                    "Q_pv$(values["connections"][1])" => Float64[],
+                    "P_tot$(values["connections"][1])" => Float64[],
+                    "Q_tot$(values["connections"][1])" => Float64[],
+                    "Phase" => Int[],
+                    "key_PV" => Int[],
+                    "PV_setpoint" => String[],
+                    "bus_number" => Int[]
+                )
+            end
+            push!(load_dict["P$(values["connections"][1])"], values["pd"][1])
+            push!(load_dict["Q$(values["connections"][1])"], values["qd"][1])
+            push!(load_dict["Phase"], values["connections"][1])
+        else
+            load_idx = values["non_PV_load_number"]
+            load_key = string(load_idx)
+            load_dict = get!(alpha_dict["Loads"], load_key) do
+                Dict(
+                    "P$(values["connections"][1])" => Float64[],
+                    "Q$(values["connections"][1])" => Float64[],
+                    "P_pv$(values["connections"][1])" => Float64[],
+                    "Q_pv$(values["connections"][1])" => Float64[],
+                    "P_tot$(values["connections"][1])" => Float64[],
+                    "Q_tot$(values["connections"][1])" => Float64[],
+                    "Phase" => Int[],
+                    "key_PV" => Int[],
+                    "PV_setpoint" => String[],
+                    "bus_number" => Int[]
+                )
+            end
+            push!(load_dict["P_pv$(values["connections"][1])"], values["pd"][1])
+            push!(load_dict["Q_pv$(values["connections"][1])"], values["qd"][1])
+            push!(load_dict["PV_setpoint"], values["PV_setpoint"])
+            push!(load_dict["bus_number"], values["load_bus"])
+            push!(load_dict["key_PV"], load_idx)
         end
-        push!(load_dict["P$(values["connections"][1])"], values["pd"][1])
-        push!(load_dict["Q$(values["connections"][1])"], values["qd"][1])
+    end
+    for (key, values) in math["load"]
+        load_key = string(key)
+        if values["index"] <= 55
+            load_key = string(key)
+            load_dict = get!(alpha_dict["Loads"], load_key) do
+                    Dict(
+                        "P$(values["connections"][1])" => Float64[],
+                        "Q$(values["connections"][1])" => Float64[],
+                        "P_pv$(values["connections"][1])" => Float64[],
+                        "Q_pv$(values["connections"][1])" => Float64[],
+                        "P_tot$(values["connections"][1])" => Float64[],
+                        "Q_tot$(values["connections"][1])" => Float64[],
+                        "Phase" => Int[],
+                        "key_PV" => Int[],
+                        "PV_setpoint" => String[],
+                        "bus_number" => Int[]
+                    )
+            end
+            P_tot = 0
+            Q_tot = 0
+            if load_key in PV_load
+                P_tot = load_dict["P$(values["connections"][1])"][end] + load_dict["P_pv$(values["connections"][1])"][end]
+                Q_tot = load_dict["Q$(values["connections"][1])"][end] + load_dict["Q_pv$(values["connections"][1])"][end]
+            else
+                P_tot = load_dict["P$(values["connections"][1])"][end]
+                Q_tot = load_dict["Q$(values["connections"][1])"][end]
+            end
+            push!(load_dict["P_tot$(values["connections"][1])"], P_tot)
+            push!(load_dict["Q_tot$(values["connections"][1])"], Q_tot)
+        end
     end
     for (key, values) in res["solution"]["gen"]
         gen_key = string(key)
         gen_dict = get!(alpha_dict["Gen"], gen_key) do
             Dict(
-                "P1" => Float64[values["pg"][1]],
-                "P2" => Float64[values["pg"][2]],
-                "P3" => Float64[values["pg"][3]],
-                "Q1" => Float64[values["qg"][1]],
-                "Q2" => Float64[values["qg"][2]],
-                "Q3" => Float64[values["qg"][3]],
+                "P1" => Float64[],
+                "P2" => Float64[],
+                "P3" => Float64[],
+                "Q1" => Float64[],
+                "Q2" => Float64[],
+                "Q3" => Float64[],
             )
         end
         push!(gen_dict["P1"], values["pg"][1])

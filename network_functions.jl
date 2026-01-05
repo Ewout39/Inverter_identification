@@ -277,7 +277,7 @@ function assignment_of_PV!(math::Dict, load_profiles::_DF.DataFrame, repitition:
     phase_3 = 0
     nr_PVs = 1
     load_key = 55
-    setpoints_list = ["PF_fixed", "VoltWatt", "VoltVAr"]
+    setpoints_list = ["PF_fixed", "WattVAr", "VoltVAr"]
     for n in numbers
         if math["load"]["$(n)"]["connections"][1] == 1 && ((phase_1 - 4 <  phase_2 && phase_1 - 4 < phase_3) || phase_1 < 5)
             phase_1 += 1
@@ -307,51 +307,57 @@ function assignment_of_PV!(math::Dict, load_profiles::_DF.DataFrame, repitition:
     return PV_load, PV_setpoints
 end
 
-function assign_PV_setpoints!(math::Dict, PV_load::Vector{Any}, setpoints_list::Vector{String}, repitition::Int, voltvar_curve::Vector{Tuple{Float64, Real}}, S_inverters::Vector{Any})
+function assign_PV_setpoints!(math::Dict, PV_load::Vector{Any}, setpoints_list::Vector{String}, repitition::Int, voltvar_curve::Vector{Tuple{Float64, Real}}, S_inverters::Vector{Any}) 
     rng = Random.seed!(repitition) 
-    setpoints_intermediate_list = [rand(rng, setpoints_list) for _ in 1:10*length(PV_load)]
+    setpoints_intermediate_list = [rand(rng, setpoints_list) for _ in 1:20*length(PV_load)]
     PV_setpoints = []
     PF_fixed_count = 0
-    VoltWatt_count = 0
+    WattVAr_count = 0
     VoltVAr_count = 0
-    nr_PVs = 1
+    nr_PVs = 0
     i = 1
-    for (_, load) in math["load"] #TODO add VoltVAr
-        PV_setpoint = setpoints_intermediate_list[i]
-        if PV_setpoint == "PF_fixed" && load["index"] > 55 && ((PF_fixed_count - 4 <  VoltWatt_count && PF_fixed_count - 4 < VoltVAr_count) || PF_fixed_count < 5)
-            PF_fixed_count += 1
-            load["PV_setpoint"] = "PF_fixed"
-            push!(PV_setpoints, (load["index"], "PF_fixed"))
-            load["pd_start"] = [solar_profile[1, "Psolar_"*load["parquet_id"]]]
-            load["qd_start"] = [solar_profile[1, "Psolar_"*load["parquet_id"]]*tan(acos(0.98))]
-            nr_PVs += 1
-        elseif PV_setpoint == "VoltWatt" && load["index"] > 55 && ((VoltWatt_count - 4 <  PF_fixed_count && VoltWatt_count - 4 < VoltVAr_count) || VoltWatt_count < 5)
-            VoltWatt_count += 1
-            load["PV_setpoint"] = "VoltWatt"
-            push!(PV_setpoints, (load["index"], "VoltWatt"))
-            load["pd_start"] = [solar_profile[1, "Psolar_"*load["parquet_id"]]]
-            load["qd_start"] = [0]
-            nr_PVs += 1
-        elseif PV_setpoint == "VoltVAr" && load["index"] > 55 && ((VoltVAr_count - 4 <  PF_fixed_count && VoltVAr_count - 4 <  VoltWatt_count) || VoltVAr_count < 5)
-            p_id = load["parquet_id"]
-            VoltVAr_count += 1
-            load["PV_setpoint"] = "VoltVAr"
-            push!(PV_setpoints, (load["index"], "VoltVAr"))
-            load["pd_start"] = [solar_profile[1, "Psolar_"*p_id]]
-            load["qd_start"] = [0]
-            load["VV_breakpoints"] = [i[1] for i in voltvar_curve]
-            load["VV_Q_values"] = [i[2] for i in voltvar_curve]
-            load["S_rating"] = S_inverters[parse(Int, p_id)]
-            nr_PVs += 1
+    for (_, load) in math["load"]
+        if load["index"] > 55
+            setpoint_assigned = false
+            while setpoint_assigned == false
+                PV_setpoint = setpoints_intermediate_list[i]
+                if PV_setpoint == "PF_fixed" && ((PF_fixed_count - 4 <  WattVAr_count && PF_fixed_count - 4 < VoltVAr_count) || PF_fixed_count < 5)
+                    PF_fixed_count += 1
+                    load["PV_setpoint"] = "PF_fixed"
+                    push!(PV_setpoints, (load["index"],load["non_PV_load_number"], "PF_fixed"))
+                    load["pd_start"] = [solar_profile[1, "Psolar_"*load["parquet_id"]]]
+                    load["qd_start"] = [solar_profile[1, "Psolar_"*load["parquet_id"]]*tan(acos(0.98))]
+                    nr_PVs += 1
+                    setpoint_assigned = true
+                elseif PV_setpoint == "WattVAr" && ((WattVAr_count - 4 <  PF_fixed_count && WattVAr_count - 4 < VoltVAr_count) || WattVAr_count < 5)
+                    WattVAr_count += 1
+                    load["PV_setpoint"] = "WattVAr"
+                    push!(PV_setpoints, (load["index"], load["non_PV_load_number"], "WattVAr"))
+                    load["pd_start"] = [solar_profile[1, "Psolar_"*load["parquet_id"]]]
+                    load["qd_start"] = [0]
+                    nr_PVs += 1
+                    setpoint_assigned = true
+                elseif PV_setpoint == "VoltVAr" && ((VoltVAr_count - 4 <  PF_fixed_count && VoltVAr_count - 4 <  WattVAr_count) || VoltVAr_count < 5)
+                    p_id = load["parquet_id"]
+                    VoltVAr_count += 1
+                    load["PV_setpoint"] = "VoltVAr"
+                    push!(PV_setpoints, (load["index"], load["non_PV_load_number"], "VoltVAr"))
+                    load["pd_start"] = [solar_profile[1, "Psolar_"*p_id]]
+                    load["qd_start"] = [0]
+                    load["VV_breakpoints"] = [i[1] for i in voltvar_curve]
+                    load["VV_Q_values"] = [i[2] for i in voltvar_curve]
+                    load["S_rating"] = S_inverters[parse(Int, p_id)]
+                    nr_PVs += 1
+                    setpoint_assigned = true
+                end
+                i += 1
+            end
         else
             load["PV_setpoint"] = "None"
         end
-        if nr_PVs > length(PV_load)
-            println(PF_fixed_count, " ", VoltWatt_count)
-            return PV_setpoints
-        end
-    i += 1
     end
+    println("Total", " ", nr_PVs, " ", "PF_fixed:"," ", PF_fixed_count, " ", "WattVAr", " ", WattVAr_count, " ", "VoltVAr", " ", VoltVAr_count)
+    return PV_setpoints
 end
 
 function copy_load(math::Dict, original_load_number::Int, new_load_number::Int)  #TODO may need to put dispatchable on 1, for varying loads
@@ -395,7 +401,7 @@ function insert_load_profiles!(data::Dict, df::_DF.DataFrame, timestep::Int, sol
                 load["qd"][1] = Q_solar/power_unit
                 load["P_pv"] = P_solar
                 load["Q_pv"] = Q_solar
-            elseif load["PV_setpoint"] == "VoltWatt"
+            elseif load["PV_setpoint"] == "WattVAr"
                 if P_solar/S_rated <= varP_curve[2][1]
                     Q_solar = 0.0
                     load["pd"][1] = -P_solar/power_unit
@@ -412,12 +418,14 @@ function insert_load_profiles!(data::Dict, df::_DF.DataFrame, timestep::Int, sol
                     load["pd"][1] = -P_solar/power_unit
                     load["qd"][1] = Q_solar/power_unit
                 end
+            elseif load["PV_setpoint"]=="VoltVAr"
+                load["pd_start"] = -P_solar/power_unit
             end
         else
-            load["pd"][1] = df[timestep, "PLoad_"*p_id]/power_unit
-            load["qd"][1] = df[timestep, "QLoad_"*p_id]/power_unit
-            load["P_demand"] = df[timestep, "PLoad_"*p_id]
-            load["Q_demand"] = df[timestep, "QLoad_"*p_id]
+            load["pd"][1] = df[timestep, "PLoad_"*p_id]/power_unit #around 1e-5 for 0.1 kW
+            load["qd"][1] = df[timestep, "QLoad_"*p_id]/power_unit #around 1e-5 for 0.1 kVAr
+            load["P_demand"] = df[timestep, "PLoad_"*p_id] #kW
+            load["Q_demand"] = df[timestep, "QLoad_"*p_id] #kW
         end
     end
 end
