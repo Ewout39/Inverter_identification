@@ -125,6 +125,7 @@ function add_to_dict!(Result_dict, res, repitition, math, PV_load)
                     "P$(values["connections"][1])" => Float64[],
                     "Q$(values["connections"][1])" => Float64[],
                     "P_pv$(values["connections"][1])" => Float64[],
+                    "P_pv_original$(values["connections"][1])" => Float64[],
                     "Q_pv$(values["connections"][1])" => Float64[],
                     "P_tot$(values["connections"][1])" => Float64[],
                     "Q_tot$(values["connections"][1])" => Float64[],
@@ -145,6 +146,7 @@ function add_to_dict!(Result_dict, res, repitition, math, PV_load)
                     "P$(values["connections"][1])" => Float64[],
                     "Q$(values["connections"][1])" => Float64[],
                     "P_pv$(values["connections"][1])" => Float64[],
+                    "P_pv_original$(values["connections"][1])" => Float64[],
                     "Q_pv$(values["connections"][1])" => Float64[],
                     "P_tot$(values["connections"][1])" => Float64[],
                     "Q_tot$(values["connections"][1])" => Float64[],
@@ -154,6 +156,7 @@ function add_to_dict!(Result_dict, res, repitition, math, PV_load)
                     "bus_number" => Int[]
                 )
             end
+            push!(load_dict["P_pv_original$(values["connections"][1])"], values["pd_start"][1])
             push!(load_dict["P_pv$(values["connections"][1])"], values["pd"][1])
             push!(load_dict["Q_pv$(values["connections"][1])"], values["qd"][1])
             push!(load_dict["PV_setpoint"], values["PV_setpoint"])
@@ -170,6 +173,7 @@ function add_to_dict!(Result_dict, res, repitition, math, PV_load)
                         "P$(values["connections"][1])" => Float64[],
                         "Q$(values["connections"][1])" => Float64[],
                         "P_pv$(values["connections"][1])" => Float64[],
+                        "P_pv_original$(values["connections"][1])" => Float64[],
                         "Q_pv$(values["connections"][1])" => Float64[],
                         "P_tot$(values["connections"][1])" => Float64[],
                         "Q_tot$(values["connections"][1])" => Float64[],

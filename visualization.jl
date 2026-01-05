@@ -199,15 +199,13 @@ function visualize_PV_active_power(Result_dict, repitition, solar_profile, math,
 
     for (key, value) in Result_dict["Repitition_$(repitition)"]["Loads"]
         if length(value["PV_setpoint"]) > 0
-            key_PV = value["key_PV"][1]
-            p_id = math["load"]["$(key_PV)"]["parquet_id"]
-            P_solar = solar_profile[range, "Psolar_"*p_id]
             ptot_key = only(filter(k -> startswith(k, "P_tot"), keys(value)))
             phase = parse(Int, ptot_key[end])
+            P_solar = value["P_pv_original$(phase)"]
             P_pv_data = value["P_pv$(phase)"]
             P_diff = P_solar .- P_pv_data
             if maximum(abs.(P_diff)) > 1e-3
-                plot!(p, 1:length(P_pv_data), P_diff, label="bus:$(key_PV)", color=:blue, xlabel="Time Step", ylabel="PV Active Power (kW)", title="PV Active Power over Time")
+                plot!(p, 1:length(P_pv_data), P_diff, label="bus:$(key_PV)", color=:blue, xlabel="Time Step", ylabel="PV Active Power (kW)", title="PV Active Power difference over Time")
             end
         end
     end
