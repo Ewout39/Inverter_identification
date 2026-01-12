@@ -18,17 +18,11 @@ function extract_loading_Slovak!()
             filepath = "C:\\Users\\u0181580\\OneDrive - KU Leuven\\2e_master\\thesis\\datasets\\1000_houses_dataset\\Code_data\\powerdf_clean_train\\$(k-581).csv"
             data = CSV.read(filepath, _DF.DataFrame, delim=',')
         end
-        if data[1, :PV] == 0 && sum(data[!, :P])*0.25 >= 2000
+        if data[1, :PV] == 0 && sum(data[!, :P])*0.25 >= 6000
             loaded_data[i] = data
-            if sum(data[!, :P])*0.25 >= 7500
-                random_adjustment = rand(-500:500)
-                scale_factor= (7500 + random_adjustment) / sum(data[!, :P])
-            else
-                scale_factor= 1.0
-            end
             for j in 6:35141
-                load_data[j-5, "PLoad_$(i)"] = loaded_data[i][j, :P].*scale_factor
-                load_data[j-5, "QLoad_$(i)"] = loaded_data[i][j, :Q].*scale_factor
+                load_data[j-5, "PLoad_$(i)"] = loaded_data[i][j, :P]
+                load_data[j-5, "QLoad_$(i)"] = loaded_data[i][j, :Q]
             end
             i += 1
         end
@@ -73,7 +67,7 @@ function create_solar_profiles!(solar_irradiance, eff_system, load_profiles, pan
         system_size = daily_consumption / (peak_sun_hours)*1.25 #kW
         nr_panels = ceil(system_size / panel_peak_power) #number of panels needed
         for j in 1:35136
-                solar_profile[j, "Psolar_$(i)"] = nr_panels * panel_size * solar_irradiance[j] * eff_system #Irradiance in KW per m2
+                solar_profile[j, "Psolar_$(i)"] = nr_panels * panel_size * solar_irradiance[j] * eff_system #KW, Irradiance in KW per m2
         end
         S_inv = 0.85 * nr_panels * panel_peak_power #kW
         push!(Nr_panels, nr_panels)
@@ -129,14 +123,16 @@ function add_to_dict!(Result_dict, res, repitition, math, PV_load)
                     "Q_pv$(values["connections"][1])" => Float64[],
                     "P_tot$(values["connections"][1])" => Float64[],
                     "Q_tot$(values["connections"][1])" => Float64[],
+                    "S_rated" => Float64[],
                     "Phase" => Int[],
                     "key_PV" => Int[],
                     "PV_setpoint" => String[],
                     "bus_number" => Int[]
                 )
             end
-            push!(load_dict["P$(values["connections"][1])"], values["pd"][1])
-            push!(load_dict["Q$(values["connections"][1])"], values["qd"][1])
+            push!(load_dict["P$(values["connections"][1])"], res["solution"]["load"][key]["pd"][1])
+            push!(load_dict["Q$(values["connections"][1])"], res["solution"]["load"][key]["qd"][1])
+            push!(load_dict["bus_number"], values["load_bus"])
             push!(load_dict["Phase"], values["connections"][1])
         else
             load_idx = values["non_PV_load_number"]
@@ -150,6 +146,7 @@ function add_to_dict!(Result_dict, res, repitition, math, PV_load)
                     "Q_pv$(values["connections"][1])" => Float64[],
                     "P_tot$(values["connections"][1])" => Float64[],
                     "Q_tot$(values["connections"][1])" => Float64[],
+                    "S_rated" => Float64[],
                     "Phase" => Int[],
                     "key_PV" => Int[],
                     "PV_setpoint" => String[],
@@ -157,11 +154,11 @@ function add_to_dict!(Result_dict, res, repitition, math, PV_load)
                 )
             end
             push!(load_dict["P_pv_original$(values["connections"][1])"], values["pd_start"][1])
-            push!(load_dict["P_pv$(values["connections"][1])"], values["pd"][1])
-            push!(load_dict["Q_pv$(values["connections"][1])"], values["qd"][1])
+            push!(load_dict["P_pv$(values["connections"][1])"], res["solution"]["load"][key]["pd"][1])
+            push!(load_dict["Q_pv$(values["connections"][1])"], res["solution"]["load"][key]["qd"][1])
+            push!(load_dict["S_rated"], values["S_rated"])
             push!(load_dict["PV_setpoint"], values["PV_setpoint"])
-            push!(load_dict["bus_number"], values["load_bus"])
-            push!(load_dict["key_PV"], load_idx)
+            push!(load_dict["key_PV"], load_index)
         end
     end
     for (key, values) in math["load"]
@@ -177,6 +174,7 @@ function add_to_dict!(Result_dict, res, repitition, math, PV_load)
                         "Q_pv$(values["connections"][1])" => Float64[],
                         "P_tot$(values["connections"][1])" => Float64[],
                         "Q_tot$(values["connections"][1])" => Float64[],
+                        "S_rated" => Float64[],
                         "Phase" => Int[],
                         "key_PV" => Int[],
                         "PV_setpoint" => String[],
@@ -217,5 +215,84 @@ function add_to_dict!(Result_dict, res, repitition, math, PV_load)
     end
 end
 
+function create_directory!()
+    dirpath = "C:\\Users\\u0181580\\OneDrive - KU Leuven\\PHD\\Julia\\Inverter_identification\\Smart_Meter_data"
+    mkpath(dirpath)
+    return dirpath
+end
 
+function store_data_results!(Result_dict)
+    for (key, repitition_data) in Result_dict
+        repitition = parse(Int, split(key, "_")[2])
+        for (key_lds, load) in repitition_data["Loads"]
+            phase = load["Phase"][1]
+            load_number_orig = parse(Int, key_lds)
+            noise_keys = ["P_tot$(phase)", "Q_tot$(phase)"]
+            df = _DF.DataFrame()
+            for (load_key, values) in load
+                if length(load["PV_setpoint"]) > 0
+                    data_to_store = ["S_rated", "PV_setpoint", "P_pv$(phase)", "Q_pv$(phase)", "P_load$(phase)", "Q$(phase)", "P_tot$(phase)", "Q_tot$(phase)"]
+                else
+                    data_to_store = ["P_load$(phase)", "Q$(phase)", "P_tot$(phase)", "Q_tot$(phase)"]
+                end
+                if load_key in data_to_store
+                    if load_key in noise_keys
+                        values_noisy = add_noise!(load, load_key, load_number_orig)
+                        df[!, load_key] = values_noisy
+                        df[!, "$(load_key)_noiseless"] = values
+                    else
+                        df[!, load_key] = values
+                    end
+                end
+                if load_key == "bus_number"
+                    bus = repitition_data["Busses"][string(values[1])]
+                    V1_noisy = add_noise!(bus, "V1", values[1])
+                    V2_noisy = add_noise!(bus, "V2", values[1])
+                    V3_noisy = add_noise!(bus, "V3", values[1])
+                    V4_noisy = add_noise!(bus, "V4", values[1])
+                    df[!, "V1"] = V1_noisy
+                    df[!, "V2"] = V2_noisy
+                    df[!, "V3"] = V3_noisy
+                    df[!, "V4"] = V4_noisy
+                    df[!, "V1_noiseless"] = bus["V1"]
+                    df[!, "V2_noiseless"] = bus["V2"]
+                    df[!, "V3_noiseless"] = bus["V3"]
+                    df[!, "V4_noiseless"] = bus["V4"]
+                end
+            end
+            load_number = 55*(repitition-1) + load_number_orig
+            CSV.write(joinpath(dirpath, "$(load_number).csv"), df)
+        end
+    end
+end
 
+function add_noise!(load, noise_key, load_bus)
+    max_volt_error = 0.005 #%
+    max_p_error = 0.01 #%
+    max_q_error = 2*max_p_error #%
+    if noise_key in ["V1", "V2", "V3", "V4"]
+        seed = 250
+    else
+        seed = 50
+        phase = load["Phase"][1]
+    end
+    randRNG = [Random.seed!(seed+load_bus+100*i) for i in 1:length(load[noise_key])]
+
+    σ_v_mult = 1/3*max_volt_error 
+    σ_p_mult = 1/3*max_p_error    
+    σ_q_mult = 1/3*max_q_error    
+
+    if noise_key in ["V1", "V2", "V3", "V4"]
+        v_dst = [_DST.Normal{Float64}(res, σ_v_mult*res) for res in load[noise_key]]   #probability distribution
+        vm_meas = [Random.rand(randRNG[i], d) for (i,d) in enumerate(v_dst)]
+        return vm_meas
+    elseif noise_key == "P_tot$(phase)"
+        pd_dst = [_DST.Normal{Float64}(res, σ_p_mult*res) for res in load[noise_key]]  #probability distribution
+        pd_meas = [Random.rand(randRNG[i], d) for (i,d) in enumerate(pd_dst)]
+        return pd_meas
+    elseif noise_key == "Q_tot$(phase)"
+        qd_dst = [_DST.Normal{Float64}(res, σ_q_mult*res) for res in load[noise_key]] #probability distribution
+        qd_meas = [Random.rand(randRNG[i], d) for (i,d) in enumerate(qd_dst)]
+        return qd_meas   
+    end
+end
