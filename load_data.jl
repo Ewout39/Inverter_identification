@@ -1,41 +1,254 @@
-function extract_loading_Slovak!()
+function extract_loading!()
     loaded_data = Dict{Int, Any}()
     column_names_P = ["PLoad_$(i)" for i in 1:330]
     column_names_Q = ["QLoad_$(i)" for i in 1:330]
     column_names = vcat(column_names_P, column_names_Q)
+    building_list = Int[]
     load_data = _DF.DataFrame((column_name => [0.0 for _ in 1:35136] for column_name in column_names)...)
     k = 1
     i = 1
     while i <= 330
         data = nothing
-        #filepath = "c:\\Users\\ewout\\OneDrive - KU Leuven\\2e_master\\thesis\\datasets\\1000_houses_dataset\\Code_data\\powerdf_clean_test\\$(k).csv"
-        filepath = "c:\\Users\\u0181580\\OneDrive - KU Leuven\\2e_master\\thesis\\datasets\\1000_houses_dataset\\Code_data\\powerdf_clean_test\\$(k).csv"
-        try
-            data = CSV.read(filepath, _DF.DataFrame, delim=',')
-        catch e
-            #@warn "File not found: $filepath"
-            #filepath = "c:\\Users\\ewout\\OneDrive - KU Leuven\\2e_master\\thesis\\datasets\\1000_houses_dataset\\Code_data\\powerdf_clean_train\\$(k-581).csv"
-            filepath = "C:\\Users\\u0181580\\OneDrive - KU Leuven\\2e_master\\thesis\\datasets\\1000_houses_dataset\\Code_data\\powerdf_clean_train\\$(k-581).csv"
-            data = CSV.read(filepath, _DF.DataFrame, delim=',')
-        end
-        if data[1, :PV] == 0 && sum(data[!, :P])*0.25 >= 6000
-            loaded_data[i] = data
-            for j in 6:35141
-                load_data[j-5, "PLoad_$(i)"] = loaded_data[i][j, :P]
-                load_data[j-5, "QLoad_$(i)"] = loaded_data[i][j, :Q]
+        if !(k in [6, 10, 30, 32, 59, 81, 82, 94, 104, 105, 141, 144, 185, 188, 193, 202, 206, 212, 221, 264, 283, 284, 287, 294, 307, 347, 351, 353, 370, 383, 398, 406, 412, 451, 452, 476, 478, 485, 505, 510, 530, 549, 554, 561, 571, 580, 658, 676, 679, 695, 697, 710, 727, 734, 738, 740, 753, 770, 795, 808, 809, 842, 846, 852, 866, 872, 890, 893])
+            filepath = "c:\\Users\\u0181580\\OneDrive - KU Leuven\\2e_master\\thesis\\datasets\\1000_houses_dataset\\Code_data\\powerdf_clean_test\\$(k).csv"
+            try
+                data = CSV.read(filepath, _DF.DataFrame, delim=',')
+            catch e
+                #@warn "File not found: $filepath"
+                filepath = "C:\\Users\\u0181580\\OneDrive - KU Leuven\\2e_master\\thesis\\datasets\\1000_houses_dataset\\Code_data\\powerdf_clean_train\\$(k-581).csv"
+                data = CSV.read(filepath, _DF.DataFrame, delim=',')
             end
-            i += 1
+            if (sum(data[:, :P])*0.25 >= 2000 && sum(data[:,:P])*0.25 <= 12000) && data[1, :PV] == 0 #Slovak = 3321kWh/yr https://www.odyssee-mure.eu/publications/efficiency-by-sector/households/electricity-consumption-dwelling.html
+                range = 14593:15660
+                zero_fraction = mean(data[range, :P] .== 0)
+                if zero_fraction <= 0.2
+                    loaded_data[i] = data
+                    for j in 6:35141
+                        load_data[j-5, "PLoad_$(i)"] = loaded_data[i][j, :P]
+                        load_data[j-5, "QLoad_$(i)"] = loaded_data[i][j, :Q]
+                    end
+                    i += 1
+                    push!(building_list, k)
+                end
+            end
         end
         k += 1
     end
-    return load_data #kW and kVAr
+    return load_data, building_list #kW and kVAr
 end
 
-function extract_solar_irradiance_Slovak!()
+function Yearly_consumption_profiles!()
+    #Around 7% of Belgian households have heat pumps installed in 2024 https://ehpa.org/news-and-resources/press-releases/heat-pump-sales-14-times-greater-in-lead-countries/
+    #around 10% of Belgian households have electric vehicles in 2025 https://alternative-fuels-observatory.ec.europa.eu/general-information/news/belgium-ev-growth-continues-2025-2026-set-break-new-records
+    #heatpump 33, both 33, EV: 50
+    yearly_consumption_noPV = _DF.DataFrame(EAN_ID = Int[], Yearly_consumption_kWh = Float64[], Type = String[])
+    yearly_consumption_EV_noPV = _DF.DataFrame(EAN_ID = Int[], Yearly_consumption_kWh = Float64[], Type = String[])
+    yearly_consumption_WP_noPV = _DF.DataFrame(EAN_ID = Int[], Yearly_consumption_kWh = Float64[], Type = String[])
+    yearly_consumption_WP_EV_noPV = _DF.DataFrame(EAN_ID = Int[], Yearly_consumption_kWh = Float64[], Type =  String[])
+
+    datapath_noPV = DATA_DIR*"/P6269_Open_Data_geen_ZP.csv"
+    datapath_EV_noPV = DATA_DIR*"/P6269_Open_Data_EV_geen_ZP.csv"
+    datapath_WP_noPV = DATA_DIR*"/P6269_Open_Data_WP_geen_ZP.csv"
+    datapath_WP_EV_noPV = DATA_DIR*"/P6269_Open_Data_WP_EV_geen_ZP.csv"
+    df_noPV = CSV.read(datapath_noPV, _DF.DataFrame)
+    df_EV_noPV = CSV.read(datapath_EV_noPV, _DF.DataFrame)
+    df_WP_noPV = CSV.read(datapath_WP_noPV, _DF.DataFrame)
+    df_WP_EV_noPV = CSV.read(datapath_WP_EV_noPV, _DF.DataFrame)
+    gdf = _DF.groupby(df_noPV, :EAN_ID)
+    gdf_EV = _DF.groupby(df_EV_noPV, :EAN_ID)
+    gdf_WP = _DF.groupby(df_WP_noPV, :EAN_ID)
+    gdf_WP_EV = _DF.groupby(df_WP_EV_noPV, :EAN_ID)
+    for (i, group) in enumerate(gdf)
+        yearly_consumption = sum(group[:, :Volume_Afname_KWh] .- group[:, :Volume_Injectie_KWh]) #kWh/year
+        type = group[!, :Contract_Categorie][1]
+        push!(yearly_consumption_noPV, (EAN_ID = group[1, :EAN_ID], Yearly_consumption_kWh = yearly_consumption, Type = type))
+    end
+    for (i, group) in enumerate(gdf_EV)
+        yearly_consumption = sum(group[:, :Volume_Afname_KWh] .- group[:, :Volume_Injectie_KWh]) #kWh/year
+        type = group[!, :Contract_Categorie][1]
+        push!(yearly_consumption_EV_noPV, (EAN_ID = group[1, :EAN_ID], Yearly_consumption_kWh = yearly_consumption, Type = type))
+    end
+    for (i, group) in enumerate(gdf_WP)
+        yearly_consumption = sum(group[:, :Volume_Afname_KWh] .- group[:, :Volume_Injectie_KWh]) #kWh/year
+        type = group[!, :Contract_Categorie][1]
+        push!(yearly_consumption_WP_noPV, (EAN_ID = group[1, :EAN_ID], Yearly_consumption_kWh = yearly_consumption, Type = type))
+    end
+    for (i, group) in enumerate(gdf_WP_EV)
+        yearly_consumption = sum(group[:, :Volume_Afname_KWh] .- group[:, :Volume_Injectie_KWh]) #kWh/year
+        type = group[!, :Contract_Categorie][1]
+        push!(yearly_consumption_WP_EV_noPV, (EAN_ID = group[1, :EAN_ID], Yearly_consumption_kWh = yearly_consumption, Type = type))
+    end
+    return yearly_consumption_noPV, yearly_consumption_EV_noPV, yearly_consumption_WP_noPV, yearly_consumption_WP_EV_noPV  
+end
+
+function yearly_consumption(df)
+    _DF.combine(_DF.groupby(df, :EAN_ID)) do g
+        _DF.DataFrame(
+            EAN_ID = g.EAN_ID[1],
+            Yearly_consumption_kWh = sum(g.Volume_Afname_KWh .- g.Volume_Injectie_KWh), 
+            Afname = [g.Volume_Afname_KWh],
+            Injectie = [g.Volume_Injectie_KWh])
+    end
+end
+
+function extract_Fluvius_profiles!(DATA_DIR; seed=42)
+    Random.seed!(seed)
+
+    filter_range(df) = filter(r -> 2500 ≤ r.Yearly_consumption_kWh ≤ 12000, df)
+    df_noPV      = CSV.read(joinpath(DATA_DIR, "P6269_Open_Data_geen_ZP.csv"), _DF.DataFrame)
+    df_EV        = CSV.read(joinpath(DATA_DIR, "P6269_Open_Data_EV_geen_ZP.csv"), _DF.DataFrame)
+    df_WP        = CSV.read(joinpath(DATA_DIR, "P6269_Open_Data_WP_geen_ZP.csv"), _DF.DataFrame)
+    df_WP_EV     = CSV.read(joinpath(DATA_DIR, "P6269_Open_Data_WP_EV_geen_ZP.csv"), _DF.DataFrame)
+
+    yc_noPV      = yearly_consumption(df_noPV)
+    yc_EV        = yearly_consumption(df_EV)
+    yc_WP        = yearly_consumption(df_WP)
+    yc_WP_EV     = yearly_consumption(df_WP_EV)
+
+    yc_noPV_f    = filter_range(yc_noPV)
+    yc_EV_f      = filter_range(yc_EV)
+    yc_WP_f      = filter_range(yc_WP)
+    yc_WP_EV_f   = filter_range(yc_WP_EV)
+
+    @assert _DF.nrow(yc_noPV_f)  >= 100 "Not enough noPV buildings"
+    @assert _DF.nrow(yc_EV_f)    >= 90  "Not enough EV buildings"
+    @assert _DF.nrow(yc_WP_f)    >= 70  "Not enough WP buildings"
+    @assert _DF.nrow(yc_WP_EV_f) >= 70  "Not enough WP+EV buildings"
+
+    function sample_rows(df, n::Int)
+        idx = sample(1:_DF.nrow(df), n; replace=false)
+        return df[idx, :]
+    end
+
+    sample_noPV  = sample_rows(yc_noPV_f, 100)
+    sample_EV    = sample_rows(yc_EV_f, 90)
+    sample_WP    = sample_rows(yc_WP_f, 70)
+    sample_WP_EV = sample_rows(yc_WP_EV_f, 70)
+
+
+    selected_all = vcat(sample_noPV, sample_EV, sample_WP, sample_WP_EV)
+    return (
+        noPV = sample_noPV,
+        EV = sample_EV,
+        WP = sample_WP,
+        WP_EV = sample_WP_EV,
+        all = selected_all
+    )
+end
+
+function split_random_balanced(samples; n_groups=6, seed=42, group_size=55)
+    Random.seed!(seed)
+    noPV  = shuffle(samples.noPV)
+    EV    = shuffle(samples.EV)
+    WP    = shuffle(samples.WP)
+    WP_EV = shuffle(samples.WP_EV)
+
+    ranges = Dict(
+        :EV => (11,14),
+        :WP => (7,9),
+        :WP_EV => (7,9)
+    )
+
+    groups = _DF.DataFrame[]
+
+    remaining = Dict(
+        :EV => copy(EV),
+        :WP => copy(WP),
+        :WP_EV => copy(WP_EV),
+        :noPV => copy(noPV)
+    )
+
+    for g in 1:n_groups
+        group_rows = _DF.DataFrame()
+        for (cat, (minc, maxc)) in ranges
+            avail = remaining[cat]
+            count = rand(minc:maxc)
+            count = min(count, _DF.nrow(avail))
+            if count > 0
+                append!(group_rows, avail[1:count, [:EAN_ID, :Afname, :Injectie]])
+                remaining[cat] = avail[(count+1):end, :]
+            end
+        end
+
+        remaining_slots = group_size - _DF.nrow(group_rows)
+        avail_noPV = remaining[:noPV]
+        take_noPV = min(remaining_slots, _DF.nrow(avail_noPV))
+        if take_noPV > 0
+            append!(group_rows, avail_noPV[1:take_noPV, [:EAN_ID, :Afname, :Injectie]])
+            remaining[:noPV] = avail_noPV[(take_noPV+1):end, :]
+        end
+
+        remaining_slots = group_size - _DF.nrow(group_rows)
+        if remaining_slots > 0
+            leftover_rows = vcat(remaining[:EV], remaining[:WP], remaining[:WP_EV], remaining[:noPV])
+            if _DF.nrow(leftover_rows) > 0
+                take_leftover = min(remaining_slots, _DF.nrow(leftover_rows))
+                append!(group_rows, leftover_rows[1:take_leftover, [:EAN_ID, :Afname, :Injectie]])
+            end
+        end
+
+        shuffle!(group_rows)
+
+        push!(groups, group_rows)
+    end
+
+    return groups
+end
+
+function recombine_groups_with_Q!(groups; Weibull = false)
+    n_buildings = 330 
+    n_rows = 35136
+
+    buildings_ordered = vcat(groups...)
+
+    column_names_P = ["PLoad_$(i)" for i in 1:n_buildings]
+    column_names_Q = ["QLoad_$(i)" for i in 1:n_buildings]
+    column_names = vcat(column_names_P, column_names_Q)
+    load_data = _DF.DataFrame( (name => zeros(Float64, n_rows) for name in column_names)... )
+    PF = Dict()
+    for (i, ean) in enumerate(buildings_ordered.EAN_ID)
+        Pvals = buildings_ordered.Afname[i] .- buildings_ordered.Injectie[i] #kWh per 15min
+        @assert length(Pvals) == n_rows "Mismatch for EAN $(ean): $(length(Pvals))"
+        load_data[!, "PLoad_$(i)"] = Pvals.*4 #kW
+
+        Random.seed!(1000 + i)
+        if Weibull
+            alpha = 2
+            beta = 4
+            w_norm = rand(_DST.Beta(alpha, beta), n_rows)
+            pf = 0.998 .- w_norm .* (0.998 - 0.8)
+        else
+            pf = rand(n_rows) .* (0.998 - 0.9) .+ 0.9  # random pf per timestep between 0.9 and 0.998
+        end
+        PF[i] = pf
+        Qvals = Pvals.* 4 .* tan.(acos.(pf))
+        load_data[!, "QLoad_$(i)"] = Qvals
+    end
+
+    return load_data, PF
+end
+
+function load_data!(dataset; weibull=false)
+    if dataset == "Belgium"
+        noPV, EV, WP, WP_EV, df_all = extract_Fluvius_profiles!(DATA_DIR)
+        data = split_random_balanced((noPV=noPV, EV=EV, WP=WP, WP_EV=WP_EV), n_groups=6)
+        load_profiles, PF = recombine_groups_with_Q!(data, Weibull=weibull)
+        building_list = Int[]
+    elseif dataset == "Slovakia"
+        load_profiles, building_list = extract_loading!()
+        PF = Dict()
+    end
+    return load_profiles, building_list, PF
+end
+
+function extract_solar_irradiance!(dataset)
     solar_irradiance_1h = _DF.DataFrame("Irradiance_kW_m2" => [0.0 for _ in 1:8784])
     solar_irradiance = _DF.DataFrame("Irradiance_kW_m2" => [0.0 for _ in 1:35136])
-    #filepath = "C:\\Users\\ewout\\OneDrive - KU Leuven\\PHD\\Julia\\Inverter_setpoint\\Irradiance_profile.csv"
-    filepath = "Irradiance_profile.csv"
+    if dataset == "Belgium"
+        filepath = DATA_DIR * "/Irradiance_Profile_Belgium.csv"
+    elseif dataset == "Slovakia"
+        filepath = DATA_DIR * "/Irradiance_Profile_Slovakia.csv"
+    end
     data = CSV.read(filepath, _DF.DataFrame)
     for j in 1:(8792-8)
         solar_irradiance_1h[j, "Irradiance_kW_m2"] = parse(Float64, data[j+8, :Column10])
@@ -54,26 +267,39 @@ function extract_solar_irradiance_Slovak!()
     return solar_irradiance[!, "Irradiance_kW_m2"]
 end
 
-function create_solar_profiles!(solar_irradiance, eff_system, load_profiles, panel_peak_power, panel_size)
+function create_solar_profiles!(solar_irradiance, load_profiles, panel_peak_power)
     Nr_panels = []
     S_inverter = []
+    P_daily = []
     column_names = ["Psolar_$(i)" for i in 1:330]
     solar_profile = _DF.DataFrame((column_name => [0.0 for _ in 1:35136] for column_name in column_names)...)
     for i in 1:330
         load_profile = load_profiles[!, "PLoad_$(i)"]
-        yearly_consumption = sum(load_profile)*0.25 #kWh
+        yearly_consumption = sum(load_profile)*0.25 #kWh/year
         daily_consumption = yearly_consumption/365 #kWh/day
-        peak_sun_hours = sum(solar_irradiance)*0.25/365 #h/day
-        system_size = daily_consumption / (peak_sun_hours)*1.25 #kW
-        nr_panels = ceil(system_size / panel_peak_power) #number of panels needed
-        for j in 1:35136
-                solar_profile[j, "Psolar_$(i)"] = nr_panels * panel_size * solar_irradiance[j] * eff_system #KW, Irradiance in KW per m2
+        push!(P_daily, (daily_consumption, yearly_consumption))
+        peak_sun_hours = sum(solar_irradiance)*0.25/365 #kWh/m2/day=>h/day (Peak sun hours are the number of hours per day when the solar irradiance averages 1 kW/m2)
+        #println(peak_sun_hours) #3.9788 h/day
+        performance_factor = 0.8
+        system_size = daily_consumption / (performance_factor*peak_sun_hours) #kW
+        if system_size > 4.8 && yearly_consumption < 7000
+            system_size = 4.8 #kW, to limit the system size to a realistic one for single phase residential buildings https://www.fluvius.be/nl/groene-energie/zonnepanelen/technische-aspecten/omvormer
+        elseif system_size > 7.2
+            system_size = 7.2
         end
-        S_inv = 0.85 * nr_panels * panel_peak_power #kW
+        nr_panels = ceil(system_size / panel_peak_power) #number of panels needed
+        S_inv = nr_panels * panel_peak_power
+        for j in 1:35136
+            PV_output = nr_panels * panel_peak_power * (solar_irradiance[j]/1) * performance_factor #KW, Irradiance in KW per m2 divided by 1 kW/m2 to get the relative irradiance, then multiplied by the performance factor to account for losses
+            if PV_output > system_size
+                PV_output = system_size
+            end
+            solar_profile[j, "Psolar_$(i)"] = PV_output
+        end
         push!(Nr_panels, nr_panels)
         push!(S_inverter, S_inv)
     end
-    return Nr_panels, solar_profile, S_inverter
+    return Nr_panels, solar_profile, P_daily, S_inverter
 end
 
 function initialize_empty_dict!()
@@ -127,6 +353,7 @@ function add_to_dict!(Result_dict, res, repitition, math, PV_load)
                     "Phase" => Int[],
                     "key_PV" => Int[],
                     "PV_setpoint" => String[],
+                    "PV_curve" => Vector{Vector{Tuple{Real,Real}}}(),
                     "bus_number" => Int[]
                 )
             end
@@ -150,6 +377,7 @@ function add_to_dict!(Result_dict, res, repitition, math, PV_load)
                     "Phase" => Int[],
                     "key_PV" => Int[],
                     "PV_setpoint" => String[],
+                    "PV_curve" => Vector{Vector{Tuple{Real,Real}}}(),
                     "bus_number" => Int[]
                 )
             end
@@ -158,6 +386,18 @@ function add_to_dict!(Result_dict, res, repitition, math, PV_load)
             push!(load_dict["Q_pv$(values["connections"][1])"], res["solution"]["load"][key]["qd"][1])
             push!(load_dict["S_rated"], values["S_rated"])
             push!(load_dict["PV_setpoint"], values["PV_setpoint"])
+            if values["PV_setpoint"] == "PF_fixed"
+                push!(load_dict["PV_curve"], [(1.0, values["PF_value"])])
+            elseif values["PV_setpoint"] == "WattVAr"
+                vector = collect(zip(load["WattVAr_breakpoints"], load["WattVAr_Q_values"]))
+                push!(load_dict["PV_curve"], vector)
+            elseif values["PV_setpoint"] == "VoltWatt"
+                vector = collect(zip(load["VW_breakpoints"], load["VW_P_values"]))
+                push!(load_dict["PV_curve"], vector)
+            elseif values["PV_setpoint"] == "VoltVAr"
+                vector = collect(zip(load["VV_breakpoints"], load["VV_Q_values"]))
+                push!(load_dict["PV_curve"], vector)
+            end
             push!(load_dict["key_PV"], load_index)
         end
     end
@@ -231,9 +471,9 @@ function store_data_results!(Result_dict)
             df = _DF.DataFrame()
             for (load_key, values) in load
                 if length(load["PV_setpoint"]) > 0
-                    data_to_store = ["S_rated", "PV_setpoint", "P_pv$(phase)", "Q_pv$(phase)", "P_load$(phase)", "Q$(phase)", "P_tot$(phase)", "Q_tot$(phase)"]
+                    data_to_store = ["S_rated", "PV_setpoint", "P_pv$(phase)", "Q_pv$(phase)", "P$(phase)", "Q$(phase)", "P_tot$(phase)", "Q_tot$(phase)", "PV_curve"]
                 else
-                    data_to_store = ["P_load$(phase)", "Q$(phase)", "P_tot$(phase)", "Q_tot$(phase)"]
+                    data_to_store = ["P$(phase)", "Q$(phase)", "P_tot$(phase)", "Q_tot$(phase)"]
                 end
                 if load_key in data_to_store
                     if load_key in noise_keys

@@ -1,9 +1,9 @@
 function visualize_voltvar_curve(Result_dict, voltvar_curve, repititions)
-    x_curve = first.(voltvar_curve)
-    y_curve = last.(voltvar_curve)
+    #x_curve = first.(voltvar_curve)
+    #y_curve = last.(voltvar_curve)
     p = plot(
-        x_curve,
-        y_curve,
+        #x_curve,
+        #y_curve,
         xlabel = "Voltage",
         ylabel = "PV Reactive Power",
         title  = "PV Reactive Power over Voltage",
@@ -14,7 +14,7 @@ function visualize_voltvar_curve(Result_dict, voltvar_curve, repititions)
         for (key, value) in Result_dict["Repitition_$(repitition)"]["Loads"]
             if length(value["PV_setpoint"]) > 0
                 if value["PV_setpoint"][1] == "VoltVAr"
-                    println("load ", key)
+                    #println("load ", key)
                     power_unit = 1e4
                     S_rated = value["S_rated"][1]
                     phase = value["Phase"][1]
@@ -52,12 +52,42 @@ function visualize_voltvar_curve_single_load(Result_dict, voltvar_curve, repitit
     display(p)
 end
 
-function visualize_wattvar_curve(Result_dict, varP_curve, repititions)
-    x_curve = -first.(varP_curve)
-    y_curve = last.(varP_curve)
+function visualize_voltwatt_curve(Result_dict, voltWatt_curve, repititions)
+    #x_curve = first.(voltWatt_curve)
+    #y_curve = -last.(voltWatt_curve)
     p = plot(
-        x_curve,
-        y_curve,
+        #x_curve,
+        #y_curve,
+        xlabel = "Voltage",
+        ylabel = "PV Active Power",
+        title  = "PV Active Power over Voltage",
+        legend = false,
+        grid   = true
+    )
+    for repitition in 1:repititions
+        for (key, value) in Result_dict["Repitition_$(repitition)"]["Loads"]
+            if length(value["PV_setpoint"]) > 0
+                if value["PV_setpoint"][1] == "VoltWatt"
+                    println("load ", key)
+                    power_unit = 1e4
+                    S_rated = value["S_rated"][1]
+                    phase = value["Phase"][1]
+                    voltage_data = Result_dict["Repitition_$(repitition)"]["Busses"][string(value["bus_number"][1])]["V$(phase)"]
+                    P_pv_data = value["P_pv$(phase)"] ./ S_rated .* power_unit #divide by S_rated to compare with voltvar curve
+                    scatter!(p, voltage_data, P_pv_data, label="", xlabel="Voltage [pu]", ylabel="PV Active Power [pu of S_rated]", title="PV Active Power over Voltage")
+                end
+            end
+        end
+    end
+    display(p)
+end
+
+function visualize_wattvar_curve(Result_dict, varP_curve, repititions)
+    #x_curve = -first.(varP_curve)
+    #y_curve = last.(varP_curve)
+    p = plot(
+        #x_curve,
+        #y_curve,
         xlabel = "Active Power",
         ylabel = "PV Reactive Power",
         title  = "PV Reactive Power vs Active Power",
@@ -90,7 +120,7 @@ function visualize_PF_curve(Result_dict, PF_curve, repititions)
         grid   = true,
         ylims = (0.9, 1.0)
     )
-    hline!([PF_curve])
+    #hline!([PF_curve])
     for repitition in 1:repititions
         for (key, value) in Result_dict["Repitition_$(repitition)"]["Loads"]
             if length(value["PV_setpoint"]) > 0
@@ -152,6 +182,54 @@ function visualization_bus_voltages(Result_dict, repitition, range)
         plot!(p2, v2, label="Bus=$(bus)", legend_background_color=RGBA(1,1,1,0.5), color=color)
         plot!(p3, v3, label="Bus=$(bus)", legend_background_color=RGBA(1,1,1,0.5), color=color)
         plot!(p4, v4, label="Bus=$(bus)", legend_background_color=RGBA(1,1,1,0.5), color=color)
+    end
+    display(p1)
+    display(p2)
+    display(p3)
+    display(p4)
+end
+
+function visualization_all_bus_voltages(Result_dict, repititions)
+    p1 = scatter(
+        xlabel = "Time",
+        ylabel = "Voltage",
+        title  = "Voltage over time on Phase 1",
+        legend = false,
+        grid   = true
+    )
+    p2 = scatter(
+        xlabel = "Time",
+        ylabel = "Voltage",
+        title  = "Voltage over time on Phase 2",
+        legend = false,
+        grid   = true
+    )
+    p3 = scatter(
+        xlabel = "Time",
+        ylabel = "Voltage",
+        title  = "Voltage over time on Phase 3",
+        legend = false,
+        grid   = true
+    )
+    p4 = scatter(
+        xlabel = "Time",
+        ylabel = "Voltage",
+        title  = "Voltage over time on Neutral",
+        legend = false,
+        grid   = true
+    )
+    for repitition in 1:repititions
+        for bus in keys(Result_dict["Repitition_$(repitition)"]["Busses"])
+            color = :auto
+            v1 = Result_dict["Repitition_$(repitition)"]["Busses"]["$(bus)"]["V1"]
+            v2 = Result_dict["Repitition_$(repitition)"]["Busses"]["$(bus)"]["V2"]
+            v3 = Result_dict["Repitition_$(repitition)"]["Busses"]["$(bus)"]["V3"]
+            v4 = Result_dict["Repitition_$(repitition)"]["Busses"]["$(bus)"]["V4"]
+            scatter!(p1, v1, label="Bus=$(bus)", legend_background_color=RGBA(1,1,1,0.5), color=color)
+            scatter!(p2, v2, label="Bus=$(bus)", legend_background_color=RGBA(1,1,1,0.5), color=color)
+            scatter!(p3, v3, label="Bus=$(bus)", legend_background_color=RGBA(1,1,1,0.5), color=color)
+            scatter!(p4, v4, label="Bus=$(bus)", legend_background_color=RGBA(1,1,1,0.5), color=color)
+        end
     end
     display(p1)
     display(p2)
@@ -273,8 +351,7 @@ function visualize_PV_active_power(Result_dict, repitition)
         ylabel = "PV Active Power (kW)",
         title  = "PV Active Power difference over Time",
         legend = true,
-        grid   = true,
-        ylims  = (-0.01, 0.01)
+        grid   = true
     )
 
     for (key, value) in Result_dict["Repitition_$(repitition)"]["Loads"]
@@ -282,12 +359,11 @@ function visualize_PV_active_power(Result_dict, repitition)
             ptot_key = only(filter(k -> startswith(k, "P_tot"), keys(value)))
             phase = parse(Int, ptot_key[end])
             power_unit = 1e4
-            key_PV = value["key_PV"][1]
             P_solar = value["P_pv_original$(phase)"]* power_unit
             P_pv_data = value["P_pv$(phase)"]* power_unit
             P_diff = P_solar .- P_pv_data
             if maximum(abs.(P_diff)) > 1e-3
-                plot!(p, 1:length(P_pv_data), P_diff, label="bus:$(key_PV)", color=:blue, xlabel="Time Step", ylabel="PV Active Power (kW)", title="PV Active Power difference over Time")
+                plot!(p, 1:length(P_pv_data), P_diff, label="load:$(key), $(value["PV_setpoint"][1])", color=:blue, xlabel="Time Step", ylabel="PV Active Power (kW)", title="PV Active Power difference over Time")
             end
         end
     end
