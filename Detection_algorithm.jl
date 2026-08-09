@@ -12,8 +12,8 @@ function extract_measured_synthetic_data!(filename)
     return load_data
 end
 
-loaded_data = extract_measured_synthetic_data!("Smart_Meter_data_Fluvius_high_PF_varying_setpoints")
-country = "Belgium"
+loaded_data = extract_measured_synthetic_data!("Smart_Meter_data_Swiss_varying_setpoints")
+country = "Swiss"
 train_range = 1:672
 test_range = 673:2976
 #Detection of PV
@@ -1039,10 +1039,10 @@ function plot_wrongly_identified_buildings(PV_households_data, house, sunlight_t
     Q_noPV = PV_households_data[house]["Qtot"][non_sunlight_timesteps]*1e4
     Q_pv_noPV = PV_households_data[house]["Q_pv"][non_sunlight_timesteps]*1e4
     scatter!(plot1,PV_households_data[house]["V$(phase)"][intersect(1:2976, sunlight_timesteps)], Q)
-    scatter!(plot1, PV_households_data[house]["V$(phase)"][intersect(1:2976, non_sunlight_timesteps)], Q_noPV, label="Non-sunlight")
+    scatter!(plot1, PV_households_data[house]["V$(phase)"][intersect(1:2976, non_sunlight_timesteps)], Q_noPV, alpha = 0.5, label="Non-sunlight")
     scatter!(plot2,PV_households_data[house]["V$(phase)"][intersect(1:2976, sunlight_timesteps)], P)
     scatter!(plot3,PV_households_data[house]["V$(phase)"][intersect(1:2976, sunlight_timesteps)], Q_pv)
-    scatter!(plot3, PV_households_data[house]["V$(phase)"][intersect(1:2976, non_sunlight_timesteps)], Q_pv_noPV, label="Non-sunlight")
+    scatter!(plot3, PV_households_data[house]["V$(phase)"][intersect(1:2976, non_sunlight_timesteps)], Q_pv_noPV, alpha = 0.5, label="Non-sunlight")
     scatter!(plot4,PV_households_data[house]["V$(phase)"][intersect(1:2976, sunlight_timesteps)], P_pv)
     display(plot1)
     display(plot2)
@@ -1050,7 +1050,7 @@ function plot_wrongly_identified_buildings(PV_households_data, house, sunlight_t
     display(plot4)
 end
 
-plot_wrongly_identified_buildings(PV_households_data, 136, sunlight_timesteps, non_sunlight_timesteps)
+plot_wrongly_identified_buildings(PV_households_data, 309, sunlight_timesteps, non_sunlight_timesteps)
 
 
 

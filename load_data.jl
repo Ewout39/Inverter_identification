@@ -136,6 +136,57 @@ function extract_Fluvius_profiles!(DATA_DIR; seed=42)
     )
 end
 
+function extract_Swiss_profiles!(DATA_DIR)
+    good_profiles = []
+    column_names_P = ["PLoad_$(i)" for i in 1:330]
+    column_names_Q = ["QLoad_$(i)" for i in 1:330]
+    column_names = vcat(column_names_P, column_names_Q)
+    load_profiles = _DF.DataFrame((column_name => [0.0 for _ in 1:35136] for column_name in column_names)...)
+    df_metadata = CSV.read(joinpath(DATA_DIR, "metadata.csv"), _DF.DataFrame)
+    for row in eachrow(df_metadata)
+        meter_type = row[Symbol("0_installation_type")]
+        meter_id = Int(row[Symbol("0_meter_id")])
+        if meter_type == "Single-family house"
+            push!(good_profiles, meter_id)
+        end
+    end
+    for row in eachrow(df_metadata)
+        meter_type = row[Symbol("0_installation_type")]
+        meter_id = Int(row[Symbol("0_meter_id")])
+        if meter_type == "Apartment"
+            push!(good_profiles, meter_id)
+        end
+    end
+    i = 1
+    for id in good_profiles
+        if i == 331
+            break
+        end
+        df_smart_meter = CSV.read(joinpath(DATA_DIR, "$(id).csv"), _DF.DataFrame)
+        df_smart_meter.timestamp_utc = DateTime.(df_smart_meter.timestamp_utc,dateformat"yyyy-mm-dd HH:MM:SS+00:00")
+        df_2024 = df_smart_meter[year.(df_smart_meter.timestamp_utc) .== 2023, :]
+        range = 14500:23500
+        if (any(ismissing, df_2024[range, "kWh_to_installation"])) || (any(ismissing, df_2024[range, "kWh_to_grid"])) || (any(ismissing, df_2024[range, "kvarh_to_installation"])) || (any(ismissing, df_2024[range,"kvarh_to_grid"]))
+            continue
+        elseif (any(isnan, df_2024[range, "kWh_to_installation"])) || (any(isnan, df_2024[range, "kWh_to_grid"])) || (any(isnan, df_2024[range, "kvarh_to_installation"])) || (any(isnan, df_2024[range,"kvarh_to_grid"]))
+            continue
+        end
+        if sum(df_2024[range, "kWh_to_grid"] .> 0.025) > 10 #skips PV buildings
+            continue
+        end
+        net_consumption_kWh = replace(coalesce.(df_2024[:,"kWh_to_installation"], 0.0), NaN => 0.0) .- replace(coalesce.(df_2024[:,"kWh_to_grid"], 0.0), NaN => 0.0)
+        net_consumption_kvarh = replace(coalesce.(df_2024[:,"kvarh_to_installation"], 0.0), NaN => 0.0) .- replace(coalesce.(df_2024[:,"kvarh_to_grid"], 0.0), NaN => 0.0)
+        if (2500 <= sum(net_consumption_kWh)) && (sum(net_consumption_kWh) <= 12000) #ensures buildings have acceptable annual consumption
+            for j in 1:length(net_consumption_kWh)
+                load_profiles[j, "PLoad_$(i)"] = net_consumption_kWh[j] *4
+                load_profiles[j, "QLoad_$(i)"] = net_consumption_kvarh[j] *4
+            end
+            i += 1
+        end
+    end
+    return load_profiles, df_metadata
+end
+
 function split_random_balanced(samples; n_groups=6, seed=42, group_size=55)
     Random.seed!(seed)
     noPV  = shuffle(samples.noPV)
@@ -234,11 +285,17 @@ function load_data!(dataset; weibull=false)
         data = split_random_balanced((noPV=noPV, EV=EV, WP=WP, WP_EV=WP_EV), n_groups=6)
         load_profiles, PF = recombine_groups_with_Q!(data, Weibull=weibull)
         building_list = Int[]
+        metadata = _DF.DataFrame()
     elseif dataset == "Slovakia"
         load_profiles, building_list = extract_loading!()
         PF = Dict()
+        metadata = _DF.DataFrame()
+    elseif dataset == "Swiss"
+        load_profiles, metadata = extract_Swiss_profiles!(DATA_DIR_SWISS)
+        building_list = Int[]
+        PF = Dict()
     end
-    return load_profiles, building_list, PF
+    return load_profiles, building_list, PF, metadata
 end
 
 function extract_solar_irradiance!(dataset)
@@ -248,6 +305,8 @@ function extract_solar_irradiance!(dataset)
         filepath = DATA_DIR * "/Irradiance_Profile_Belgium.csv"
     elseif dataset == "Slovakia"
         filepath = DATA_DIR * "/Irradiance_Profile_Slovakia.csv"
+    elseif dataset == "Swiss"
+        filepath = DATA_DIR * "/Irradiance_Profile_Swiss.csv"
     end
     data = CSV.read(filepath, _DF.DataFrame)
     for j in 1:(8792-8)
@@ -389,13 +448,13 @@ function add_to_dict!(Result_dict, res, repitition, math, PV_load)
             if values["PV_setpoint"] == "PF_fixed"
                 push!(load_dict["PV_curve"], [(1.0, values["PF_value"])])
             elseif values["PV_setpoint"] == "WattVAr"
-                vector = collect(zip(load["WattVAr_breakpoints"], load["WattVAr_Q_values"]))
+                vector = collect(zip(values["WattVAr_breakpoints"], values["WattVAr_Q_values"]))
                 push!(load_dict["PV_curve"], vector)
             elseif values["PV_setpoint"] == "VoltWatt"
-                vector = collect(zip(load["VW_breakpoints"], load["VW_P_values"]))
+                vector = collect(zip(values["VW_breakpoints"], values["VW_P_values"]))
                 push!(load_dict["PV_curve"], vector)
             elseif values["PV_setpoint"] == "VoltVAr"
-                vector = collect(zip(load["VV_breakpoints"], load["VV_Q_values"]))
+                vector = collect(zip(values["VV_breakpoints"], values["VV_Q_values"]))
                 push!(load_dict["PV_curve"], vector)
             end
             push!(load_dict["key_PV"], load_index)

@@ -19,32 +19,34 @@ using Distances
 using MultivariateStats
 using StatsPlots
 using StatsBase
+using Dates
 using MyVVPackage
 include("load_data.jl")
 include("network_functions.jl")
 include("visualization.jl")
 
 # loading in data 
-const DATA_DIR = joinpath(dirname(@__DIR__), "inverter_identification", "Fluvius data")
+const DATA_DIR = joinpath(dirname(@__DIR__), "inverter_identification", "Fluvius data") #Fluvius_data
+const DATA_DIR_SWISS = joinpath(dirname(@__DIR__), "inverter_identification", "SWiss data")
 #Yearly consumption Fluvius visualization function
 yearly_consumption_noPV, yearly_consumption_EV_noPV, yearly_consumption_WP_noPV, yearly_consumption_WP_EV_noPV = Yearly_consumption_profiles!()
 
 #Loading in the load profiles
-country = "Belgium"
+country = "Swiss"
 Weibull = false
-load_profiles, building_list, PF_list = load_data!(country, weibull=Weibull)
-scenario = Medium_v #"Medium_v", #"High_v", "Low_v",
+load_profiles, building_list, PF_list, metadata = load_data!(country, weibull=Weibull)
+scenario = "Medium_v" #"Medium_v", #"High_v", "Low_v",
 
 #Quick test to see if all PV buildings are filtered out of Slovakian dataset
 function plot_load_profiles(load_profiles, begin_i, end_i)
     x = plot()
     for i in begin_i:end_i
-        P_load = load_profiles[14593:15960, "PLoad_$(i)"]
+        P_load = load_profiles[15493:15960, "PLoad_$(i)"]
         plot!(x, P_load, label="$(i)")
     end
     display(x)
 end
-plot_load_profiles(load_profiles, 191, 191)
+plot_load_profiles(load_profiles, 10, 21)
 
 #Quick test to see if the power factors are correctly distributed
 histogram(PF_list, bins=30, normalize=:pdf, xlabel="PF", ylabel="Probability Density", title="Distribution of PF")
@@ -108,9 +110,11 @@ for current_repitition in 1:repititions
         add_on = 5
     elseif country == "Belgium" && Weibull == true
         add_on = 10
+    elseif country == "Swiss"
+        add_on = 15
     end
     println("Starting repitition ", current_repitition)
-    PV_load, PV_setpoints = assignment_of_PV!(math, load_profiles, current_repitition, S_inverter, voltvar_curve, VoltWatt_curve, Nr_PV_buildings=Nr_pv_buildings, PF, add_on, varP_curve)
+    PV_load, PV_setpoints = assignment_of_PV!(math, load_profiles, current_repitition, S_inverter, voltvar_curve, VoltWatt_curve, varP_curve, PF, add_on, Nr_PV_buildings=Nr_pv_buildings)
     optimal_power_flow_analysis!(math, load_profiles, solar_profile, S_inverter, PF, varP_curve, current_repitition, PV_load, scenario)
     println("Finished repitition ", current_repitition)
 end

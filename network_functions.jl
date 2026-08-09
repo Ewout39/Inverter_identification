@@ -268,7 +268,7 @@ function add_linecode_math!(math::Dict, eng::Dict)
     end
 end
 
-function assignment_of_PV!(math::Dict, load_profiles::_DF.DataFrame, repitition::Int, S_inverters::Vector{Any}, voltvar_curve::Vector{Vector{Tuple{Float64, Real}}}, voltwatt_curve::Vector{Vector{Tuple{Float64, Float64}}}, PF::Vector{Float64}, add_on::Int; Nr_PV_buildings::Int=18)
+function assignment_of_PV!(math::Dict, load_profiles::_DF.DataFrame, repitition::Int, S_inverters::Vector{Any}, voltvar_curve::Vector{Vector{Tuple{Float64, Real}}}, voltwatt_curve::Vector{Vector{Tuple{Float64, Float64}}}, WattVAr_curve::Vector{Vector{Tuple{Real, Real}}}, PF::Vector{Float64}, add_on::Int; Nr_PV_buildings::Int=18)
     rng = Random.seed!(repitition + add_on)  #Needs to be random across the datasets as well               
     numbers = randperm(rng, 55)[1:55]
     PV_load = []
@@ -278,7 +278,7 @@ function assignment_of_PV!(math::Dict, load_profiles::_DF.DataFrame, repitition:
     nr_PVs = 1
     load_key = 55
     setpoints_list = ["PF_fixed", "WattVAr", "VoltVAr", "VoltWatt"]
-    for load in math["load"]
+    for (key, load) in math["load"]
         load["PV_load"] = false
     end
     for n in numbers
@@ -306,7 +306,7 @@ function assignment_of_PV!(math::Dict, load_profiles::_DF.DataFrame, repitition:
         end
     end
     assign_load_to_parquet_id!(math, load_profiles, repitition)
-    PV_setpoints = assign_PV_setpoints!(math, PV_load, setpoints_list, repitition, voltvar_curve, voltwatt_curve, S_inverters, PF)
+    PV_setpoints = assign_PV_setpoints!(math, PV_load, setpoints_list, repitition, voltvar_curve, voltwatt_curve, S_inverters, PF, WattVAr_curve)
     return PV_load, PV_setpoints
 end
 
@@ -414,7 +414,6 @@ function assign_load_to_parquet_id!(data::Dict, df::_DF.DataFrame, repitition::I
     end
     return data
 end
-
 
 function insert_load_profiles!(data::Dict, df::_DF.DataFrame, timestep::Int, solar_profile::_DF.DataFrame, PF::Vector{Float64}, S_inverters::Vector{Any}, varP_curve_list::Vector{Vector{Tuple{Real, Real}}}, repitition::Int64, scenario::String)
     power_unit = data["settings"]["sbase"]
