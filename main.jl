@@ -20,6 +20,7 @@ using MultivariateStats
 using StatsPlots
 using StatsBase
 using Dates
+using GLM
 using MyVVPackage
 include("load_data.jl")
 include("network_functions.jl")
